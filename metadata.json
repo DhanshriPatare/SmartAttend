@@ -1,0 +1,6 @@
+{
+  "name": "SmartAttend",
+  "description": "A faculty-controlled attendance management system with real-time tracking, defaulter detection (<75%), and automated alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
