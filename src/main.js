@@ -491,8 +491,9 @@ function FacultyClassesTemplate() {
                   <label class="text-[10px] font-bold text-text-secondary uppercase tracking-widest ml-1">Logical Class ID</label>
                   <input type="text" id="class-id" placeholder="e.g. UC404" class="input-field" required>
                 </div>
-                <button type="submit" class="w-full bg-accent text-bg py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                  <i data-lucide="rocket" class="w-4 h-4"></i> Deploy New Subject
+                <button type="submit" ${state.loading ? 'disabled' : ''} class="w-full bg-accent text-bg py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <i data-lucide="${state.loading ? 'loader-2' : 'rocket'}" class="w-4 h-4 ${state.loading ? 'animate-spin' : ''}"></i> 
+                  ${state.loading ? 'Deploying...' : 'Deploy New Subject'}
                 </button>
               </form>
             </div>
@@ -828,14 +829,21 @@ function attachEventListeners() {
   // Faculty Classes Actions
   document.getElementById('create-class-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // CAPTURE VALUES BEFORE RENDER
+    const subjectName = document.getElementById('subject-name').value;
+    const subjectCode = document.getElementById('subject-code').value;
+    const semester = document.getElementById('semester').value;
+    const classId = document.getElementById('class-id').value;
+
     state.loading = true;
     render();
     try {
       const classData = {
-        subjectName: document.getElementById('subject-name').value,
-        subjectCode: document.getElementById('subject-code').value,
-        semester: document.getElementById('semester').value,
-        classId: document.getElementById('class-id').value
+        subjectName,
+        subjectCode,
+        semester,
+        classId
       };
       await facultyService.createClass(state.user.uid, classData);
       await fetchFacultyData(); // Refresh personal workload
