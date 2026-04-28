@@ -27,6 +27,7 @@ let state = {
   },
   
   student: {
+    history: [],
     overall: 0,
     analytics: []
   },
@@ -279,13 +280,17 @@ function FacultyDashboardTemplate() {
           </div>
 
           <div class="space-y-6 flex flex-col">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-4">
               <div class="bg-card-bg p-5 rounded-2xl border border-border space-y-2">
                 <p class="text-[10px] font-bold text-text-secondary uppercase">Present</p>
                 <p class="text-3xl font-bold text-success tabular-nums">${presentCount}</p>
               </div>
               <div class="bg-card-bg p-5 rounded-2xl border border-border space-y-2">
-                <p class="text-[10px] font-bold text-text-secondary uppercase">Session Stats</p>
+                <p class="text-[10px] font-bold text-text-secondary uppercase">Absent</p>
+                <p class="text-3xl font-bold text-danger tabular-nums">${absentCount}</p>
+              </div>
+              <div class="bg-card-bg p-5 rounded-2xl border border-border space-y-2">
+                <p class="text-[10px] font-bold text-text-secondary uppercase">Ratio</p>
                 <p class="text-3xl font-bold text-accent tabular-nums">${f.students.length > 0 ? Math.round((presentCount/f.students.length)*100) : 0}%</p>
               </div>
             </div>
@@ -346,10 +351,11 @@ function FacultyDashboardTemplate() {
     </div>
   `;
 }
-
 function StudentDashboardTemplate() {
-  const { analytics, overall } = state.student;
+  const { analytics, overall, history } = state.student;
   const isLow = overall < 75;
+  let totalPresent = 0, totalClasses = 0, totalNeeded = 0, totalCanMiss = 0;
+  analytics.forEach(s => { totalPresent += s.present||0; totalClasses += s.total||0; totalNeeded += s.classesNeeded||0; totalCanMiss += s.canMiss||0; });
 
   return `
     <div class="flex min-h-screen">
@@ -360,68 +366,84 @@ function StudentDashboardTemplate() {
             <p class="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em]">Academic Analytics</p>
             <h1 class="text-2xl font-bold text-text-primary tracking-tight">Personal Portal</h1>
           </div>
-          
-          <div class="bg-card-bg border border-border rounded-2xl px-6 py-4 flex items-center gap-6">
-            <div class="space-y-0.5">
-              <span class="block text-[10px] font-bold text-text-secondary uppercase tracking-widest leading-none">Net Ratio</span>
-              <span class="font-mono text-xl font-bold tabular-nums ${isLow ? 'text-danger' : 'text-accent'}">${overall}%</span>
-            </div>
-            <div class="w-px h-8 bg-border"></div>
-            <div class="text-xs font-bold whitespace-nowrap px-3 py-1 rounded-lg ${isLow ? 'bg-danger/10 text-danger ring-1 ring-danger/20' : 'bg-success/10 text-success'}">
-              ${isLow ? 'DEFAULTER RISK' : 'OPTIMAL'}
+          <div class="flex items-center gap-4">
+            <button id="export-attendance-btn" class="bg-card-bg border border-border px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:border-accent transition-all flex items-center gap-2">
+              <i data-lucide="download" class="w-3 h-3"></i> Export CSV
+            </button>
+            <div class="bg-card-bg border border-border rounded-2xl px-6 py-4 flex items-center gap-6">
+              <div class="space-y-0.5">
+                <span class="block text-[10px] font-bold text-text-secondary uppercase tracking-widest leading-none">Net Ratio</span>
+                <span class="font-mono text-xl font-bold tabular-nums ${isLow ? 'text-danger' : 'text-accent'}">${overall}%</span>
+              </div>
+              <div class="w-px h-8 bg-border"></div>
+              <div class="text-xs font-bold whitespace-nowrap px-3 py-1 rounded-lg ${isLow ? 'bg-danger/10 text-danger ring-1 ring-danger/20' : 'bg-success/10 text-success'}">
+                ${isLow ? 'DEFAULTER RISK' : 'OPTIMAL'}
+              </div>
             </div>
           </div>
         </header>
+
+        ${totalNeeded > 0 ? `
+          <div class="bg-danger/5 border border-danger/20 rounded-2xl p-4 flex items-start gap-3 mb-6">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-danger flex-shrink-0 mt-0.5"></i>
+            <div><p class="text-sm font-bold text-danger mb-1">Attendance Alert</p><p class="text-xs text-text-secondary">You need to attend <span class="text-danger font-bold">${totalNeeded} more class${totalNeeded>1?'es':''}</span> to maintain 75% attendance.</p></div>
+          </div>
+        ` : totalCanMiss > 0 ? `
+          <div class="bg-success/5 border border-success/20 rounded-2xl p-4 flex items-start gap-3 mb-6">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-success flex-shrink-0 mt-0.5"></i>
+            <div><p class="text-sm font-bold text-success mb-1">Good Standing</p><p class="text-xs text-text-secondary">You can safely miss up to <span class="text-success font-bold">${totalCanMiss} class${totalCanMiss>1?'es':''}</span>.</p></div>
+          </div>
+        ` : ''}
+
+        <div class="grid grid-cols-4 gap-4 mb-8">
+          <div class="bg-card-bg border border-border p-5 rounded-2xl space-y-2"><p class="text-[10px] font-bold text-text-secondary uppercase">Present</p><p class="text-3xl font-bold text-success tabular-nums">${totalPresent}</p></div>
+          <div class="bg-card-bg border border-border p-5 rounded-2xl space-y-2"><p class="text-[10px] font-bold text-text-secondary uppercase">Total</p><p class="text-3xl font-bold text-accent tabular-nums">${totalClasses}</p></div>
+          <div class="bg-card-bg border border-border p-5 rounded-2xl space-y-2"><p class="text-[10px] font-bold text-text-secondary uppercase">Needed</p><p class="text-3xl font-bold ${totalNeeded>0?'text-danger':'text-success'} tabular-nums">${totalNeeded}</p></div>
+          <div class="bg-card-bg border border-border p-5 rounded-2xl space-y-2"><p class="text-[10px] font-bold text-text-secondary uppercase">Can Miss</p><p class="text-3xl font-bold text-success tabular-nums">${totalCanMiss}</p></div>
+        </div>
         
         <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-8">
           <div class="space-y-6">
              <div class="bg-card-bg border border-border rounded-2xl p-6 space-y-4">
-              <div class="flex items-center gap-3">
-                <i data-lucide="bell" class="text-accent w-4 h-4"></i>
-                <h3 class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Summary</h3>
+              <div class="flex items-center gap-3"><i data-lucide="trending-up" class="text-accent w-4 h-4"></i><h3 class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Classes to Attend</h3></div>
+              <div class="space-y-3">
+                ${analytics.length === 0 ? '<p class="text-[11px] text-text-secondary italic">No enrollment data found.</p>' : ''}
+                ${analytics.map(stats => `
+                  <div class="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div><p class="text-xs font-bold text-text-primary">${stats.subjectName}</p><p class="text-[10px] text-text-secondary">${stats.subjectCode} • ${stats.present||0}/${stats.total||0} attended</p></div>
+                    ${(stats.classesNeeded||0) > 0 ? `<span class="text-xs font-bold text-danger bg-danger/10 px-3 py-1 rounded-lg whitespace-nowrap">Attend ${stats.classesNeeded} more</span>` : (stats.canMiss||0) > 0 ? `<span class="text-xs font-bold text-success bg-success/10 px-3 py-1 rounded-lg whitespace-nowrap">Can skip ${stats.canMiss}</span>` : (stats.total||0) > 0 ? `<span class="text-xs font-bold text-accent bg-accent/10 px-3 py-1 rounded-lg whitespace-nowrap">On Track</span>` : `<span class="text-xs font-bold text-text-secondary bg-border/10 px-3 py-1 rounded-lg whitespace-nowrap">No Data</span>`}
+                  </div>
+                `).join('')}
               </div>
-              <p class="text-xs text-text-secondary leading-relaxed">
-                Attendance is updated daily. Ensure your ratio stays above <span class="text-accent font-bold">75%</span> to qualify for final assessments.
-              </p>
             </div>
 
             <div class="bg-card-bg border border-border rounded-2xl p-6 space-y-4">
-              <div class="flex items-center gap-3">
-                <i data-lucide="trending-up" class="text-accent w-4 h-4"></i>
-                <h3 class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Next Goals</h3>
+              <div class="flex items-center gap-3"><i data-lucide="calendar" class="text-accent w-4 h-4"></i><h3 class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Last 7 Days</h3></div>
+              <div class="space-y-2">
+                ${(history||[]).length === 0 ? '<p class="text-[11px] text-text-secondary italic">No history data available.</p>' : ''}
+                ${(history||[]).map(day => `
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-text-secondary font-medium">${day.date}</span>
+                    <div class="flex items-center gap-2">
+                      <div class="h-1.5 w-24 bg-border rounded-full overflow-hidden"><div class="h-full ${day.total>0&&(day.present/day.total)*100>=75?'bg-success':'bg-danger'}" style="width: ${day.total>0?(day.present/day.total)*100:0}%"></div></div>
+                      <span class="text-text-secondary font-mono">${day.present}/${day.total}</span>
+                    </div>
+                  </div>
+                `).join('')}
               </div>
-              <p class="text-[11px] text-text-secondary leading-relaxed italic">
-                Data synchronization completed. Last updated: Just now.
-              </p>
             </div>
           </div>
 
           <div class="bg-card-bg border border-border rounded-2xl overflow-hidden">
-            <div class="p-5 border-b border-border flex justify-between items-center bg-[#1e293b80]">
-              <h2 class="text-sm font-bold uppercase tracking-wider">Course Performance</h2>
-              <span class="text-[10px] font-bold text-accent px-2 py-0.5 rounded bg-accent/10">Active Modules</span>
-            </div>
-            
+            <div class="p-5 border-b border-border flex justify-between items-center bg-[#1e293b80]"><h2 class="text-sm font-bold uppercase tracking-wider">Course Performance</h2><span class="text-[10px] font-bold text-accent px-2 py-0.5 rounded bg-accent/10">${analytics.length} Active</span></div>
             <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${analytics.length === 0 ? '<p class="text-sm text-text-secondary text-center col-span-2 py-20 italic">No enrollment data found.</p>' : ''}
               ${analytics.map(stats => `
                 <div class="bg-bg border border-border p-5 rounded-2xl space-y-4 hover:border-accent/40 transition-colors group">
-                  <div class="flex justify-between items-start">
-                    <h4 class="text-xs font-bold text-text-secondary uppercase tracking-widest leading-tight line-clamp-1">${stats.subjectName}</h4>
-                    ${stats.percentage < 75 ? '<i data-lucide="alert-triangle" class="w-3 h-3 text-danger"></i>' : '<div class="w-1.5 h-1.5 rounded-full bg-success glow"></div>'}
-                  </div>
-                  <div class="flex items-baseline gap-2">
-                    <span class="text-3xl font-bold tabular-nums italic ${stats.percentage < 75 ? 'text-danger' : 'text-text-primary'}">${stats.percentage}</span>
-                    <span class="text-[10px] font-bold text-text-secondary">% Ratio</span>
-                  </div>
-                  <div class="space-y-1.5">
-                    <div class="h-1 w-full bg-border rounded-full overflow-hidden">
-                      <div class="h-full ${stats.percentage < 75 ? 'bg-danger' : 'bg-accent'}" style="width: ${stats.percentage}%"></div>
-                    </div>
-                    <div class="flex justify-between text-[9px] font-mono text-text-secondary uppercase tracking-tighter">
-                      <span>${stats.present} Present / ${stats.total} Total</span>
-                    </div>
-                  </div>
+                  <div class="flex justify-between items-start"><h4 class="text-xs font-bold text-text-secondary uppercase tracking-widest leading-tight line-clamp-1">${stats.subjectName}</h4>${stats.percentage < 75 ? '<i data-lucide="alert-triangle" class="w-3 h-3 text-danger"></i>' : '<div class="w-1.5 h-1.5 rounded-full bg-success glow"></div>'}</div>
+                  <div class="flex items-baseline gap-2"><span class="text-3xl font-bold tabular-nums italic ${stats.percentage < 75 ? 'text-danger' : 'text-text-primary'}">${stats.percentage}</span><span class="text-[10px] font-bold text-text-secondary">% Ratio</span></div>
+                  <div class="border-t border-border pt-3">${(stats.classesNeeded||0)>0?`<p class="text-[10px] font-bold text-danger">Need ${stats.classesNeeded} more</p>`:(stats.canMiss||0)>0?`<p class="text-[10px] font-bold text-success">Can miss ${stats.canMiss}</p>`:(stats.total||0)>0?`<p class="text-[10px] font-bold text-accent">Maintain attendance</p>`:`<p class="text-[10px] font-bold text-text-secondary">No records yet</p>`}</div>
+                  <div class="space-y-1.5"><div class="h-1 w-full bg-border rounded-full overflow-hidden"><div class="h-full ${stats.percentage < 75 ? 'bg-danger' : 'bg-accent'}" style="width: ${stats.percentage}%"></div></div><div class="flex justify-between text-[9px] font-mono text-text-secondary uppercase tracking-tighter"><span>${stats.present} Present / ${stats.total} Total</span></div></div>
                 </div>
               `).join('')}
             </div>
@@ -431,7 +453,6 @@ function StudentDashboardTemplate() {
     </div>
   `;
 }
-
 function FacultyClassesTemplate() {
   const f = state.faculty;
   const myClassIds = f.classes.map(c => c.id);
@@ -700,9 +721,10 @@ async function fetchStudentAnalytics() {
   if (!state.user || state.user.role !== 'student') return;
   state.loading = true;
   try {
-    const { overall, analytics } = await studentService.getStudentAnalytics(state.user.uid);
+    const { overall, analytics, history } = await studentService.getStudentAnalytics(state.user.uid);
     state.student.overall = overall;
     state.student.analytics = analytics;
+    state.student.history = history || [];
     render();
   } catch (err) {
     console.error(err);

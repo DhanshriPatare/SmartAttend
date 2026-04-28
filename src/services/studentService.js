@@ -3,25 +3,34 @@ import { db } from "../firebase";
 
 export const studentService = {
   getStudentAnalytics: async (studentId) => {
-    // 1. Get all classes the student is enrolled in
     const enrolledQ = query(collection(db, "enrollments"), where("studentId", "==", studentId));
     const enrolledSnap = await getDocs(enrolledQ);
     const classIds = enrolledSnap.docs.map(doc => doc.data().classId);
 
-    if (classIds.length === 0) return { overall: 0, analytics: [] };
+    if (classIds.length === 0) return { overall: 0, analytics: [], history: [] };
 
-    // 2. Get all attendance records for this student
     const attendanceQ = query(collection(db, "attendance"), where("studentId", "==", studentId));
     const attendanceSnap = await getDocs(attendanceQ);
     const attendanceRecords = attendanceSnap.docs.map(doc => doc.data());
 
-    // 3. Process analytics for each class
+    const history = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const dayRecords = attendanceRecords.filter(r => r.date === dateStr);
+      history.push({
+        date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+        present: dayRecords.filter(r => r.status === 'present').length,
+        total: dayRecords.length
+      });
+    }
+
     const analytics = [];
     let totalPresent = 0;
     let totalClasses = 0;
 
     for (const cid of classIds) {
-        // Get class details
         const classQ = query(collection(db, "classes"), where("classId", "==", cid));
         const classSnap = await getDocs(classQ);
         if (classSnap.empty) continue;
@@ -30,19 +39,28 @@ export const studentService = {
         const subjectName = classData.subjectName;
         const subjectCode = classData.subjectCode;
 
-        // Filter attendance for this class
         const classAttendance = attendanceRecords.filter(r => r.classId === cid);
         const presentCount = classAttendance.filter(r => r.status === "present").length;
         const totalCount = classAttendance.length;
 
         const percentage = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
+        let classesNeeded = 0;
+        if (totalCount > 0 && percentage < 75) {
+          let p = presentCount, t = totalCount;
+          while ((p / t) * 100 < 75) { classesNeeded++; p++; t++; }
+        }
+
+        let canMiss = 0;
+        if (totalCount > 0 && percentage >= 75) {
+          let p = presentCount, t = totalCount;
+          while ((p / (t + 1)) * 100 >= 75) { canMiss++; t++; }
+        }
+
         analytics.push({
-            subjectName,
-            subjectCode,
-            percentage,
-            total: totalCount,
-            present: presentCount
+            subjectName, subjectCode, percentage,
+            total: totalCount, present: presentCount,
+            classesNeeded, canMiss
         });
 
         totalPresent += presentCount;
@@ -50,8 +68,7 @@ export const studentService = {
     }
 
     const overall = totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 0;
-
-    return { overall, analytics };
+    return { overall, analytics, history };
   },
 
   getAllClasses: async () => {
@@ -62,9 +79,7 @@ export const studentService = {
 
   enrollInClass: async (studentId, classId) => {
     const docRef = await addDoc(collection(db, "enrollments"), {
-      studentId,
-      classId,
-      enrolledAt: new Date().toISOString()
+      studentId, classId, enrolledAt: new Date().toISOString()
     });
     return { id: docRef.id, studentId, classId };
   },
