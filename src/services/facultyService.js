@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 export const facultyService = {
@@ -23,12 +23,14 @@ export const facultyService = {
   },
 
   createClass: async (teacherId, classData) => {
-    const docRef = await addDoc(collection(db, "classes"), {
+    const { classId } = classData;
+    const classRef = doc(db, "classes", classId);
+    await setDoc(classRef, {
       ...classData,
       teacherId,
       createdAt: new Date().toISOString()
     });
-    return { id: docRef.id, ...classData };
+    return { id: classId, ...classData };
   },
 
   getEnrolledStudents: async (classId) => {
